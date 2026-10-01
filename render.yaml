@@ -1,0 +1,114 @@
+# Render Blueprint for QRShare.
+#
+# Creates the web service and a managed Postgres database, and wires
+# DATABASE_URL between them automatically.
+#
+# Secrets are deliberately marked `sync: false`: Render prompts for them once
+# in the dashboard and stores them encrypted, so they never appear in this
+# file or anywhere in the Git history.
+
+services:
+  - type: web
+    name: qrshare
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+
+    # One worker with threads, on purpose: the rate limiter and the cleanup
+    # scheduler both keep per-process state. Scaling past one worker needs a
+    # shared RATE_LIMIT_STORAGE_URI first.
+    # --timeout 300 gives a 100 MB upload room to finish on a slow connection.
+    startCommand: >
+      gunicorn run:app
+      --bind 0.0.0.0:$PORT
+      --workers 1
+      --threads 8
+      --timeout 300
+      --access-logfile -
+      --error-logfile -
+
+    healthCheckPath: /healthz
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+
+      - key: FLASK_ENV
+        value: production
+
+      # Render terminates TLS and forwards the original scheme/host. Without
+      # this the app would see http:// and a proxy IP, which would put the
+      # wrong scheme in every QR code and collapse rate limiting into one
+      # shared bucket.
+      - key: TRUST_PROXY
+        value: "true"
+
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: ENABLE_HSTS
+        value: "true"
+
+      # Container disks are wiped on every deploy, so blobs live in object
+      # storage instead. Credentials are entered in the dashboard.
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_PREFIX
+        value: blobs
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+
+      # Signs sessions, CSRF tokens and download tickets. Any high-entropy
+      # string works, so Render can mint it.
+      - key: SECRET_KEY
+        generateValue: true
+
+      # Must decode to exactly 32 bytes, which a generic generator cannot
+      # guarantee -- so this one is entered by hand.
+      # Produce it with: python manage.py keygen
+      - key: MASTER_ENCRYPTION_KEY
+        sync: false
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: qrshare-db
+          property: connectionString
+
+      - key: MAX_FILE_SIZE_MB
+        value: "100"
+      - key: DEFAULT_EXPIRY_MINUTES
+        value: "60"
+      - key: MAX_EXPIRY_MINUTES
+        value: "1440"
+      - key: CLEANUP_INTERVAL_SECONDS
+        value: "300"
+      - key: CLEANUP_GRACE_MINUTES
+        value: "10"
+
+      # In-memory counters are per-process; fine for a single worker.
+      - key: RATE_LIMIT_STORAGE_URI
+        value: "memory://"
+      - key: RATE_LIMIT_UPLOAD
+        value: "20 per hour;5 per minute"
+      - key: RATE_LIMIT_PASSWORD
+        value: "10 per hour;5 per minute"
+      - key: RATE_LIMIT_DOWNLOAD
+        value: "120 per hour"
+      - key: RATE_LIMIT_STATUS
+        value: "240 per hour"
+
+databases:
+  - name: qrshare-db
+    plan: free
+    databaseName: qrshare
+    user: qrshare

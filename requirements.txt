@@ -18,6 +18,11 @@ itsdangerous==2.2.0           # signed, short-lived download tickets
 qrcode==7.4.2
 Pillow==10.3.0
 
+# --- Production (Render) ---
+gunicorn==22.0.0              # WSGI server; Flask's dev server is not for production
+psycopg[binary]==3.2.1        # PostgreSQL driver for managed databases
+boto3==1.34.144               # S3-compatible object storage (AWS S3, Cloudflare R2)
+
 # --- Configuration ---
 python-dotenv==1.0.1
 

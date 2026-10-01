@@ -46,6 +46,23 @@ def _limits(name: str, default: str) -> list[str]:
     return [part.strip() for part in raw.split(";") if part.strip()]
 
 
+def _database_url() -> str:
+    """Normalise the database URL for SQLAlchemy 2.
+
+    Managed Postgres providers hand out ``postgres://``, a scheme SQLAlchemy 2
+    no longer recognises, and the URL names no driver. Rewriting it here means
+    the deployment can paste the provider's string in unchanged.
+    """
+    raw = (os.environ.get("DATABASE_URL") or "").strip()
+    if not raw:
+        return f"sqlite:///{BASE_DIR / 'instance' / 'qrshare.db'}"
+    if raw.startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://") :]
+    if raw.startswith("postgresql://"):
+        raw = "postgresql+psycopg://" + raw[len("postgresql://") :]
+    return raw
+
+
 class Config:
     """Base configuration shared by every environment."""
 
@@ -54,12 +71,27 @@ class Config:
     ENV_NAME = os.environ.get("FLASK_ENV", "production")
 
     # -- Database ----------------------------------------------------------
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'instance' / 'qrshare.db'}"
+    SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS: dict = {"pool_pre_ping": True}
+    SQLALCHEMY_ENGINE_OPTIONS: dict = {
+        "pool_pre_ping": True,
+        # Managed Postgres drops idle connections; recycling below that keeps
+        # a sleeping free-tier service from waking into a dead pool.
+        "pool_recycle": 280,
+    }
 
     # -- Storage -----------------------------------------------------------
+    #: "local" for a filesystem directory, "s3" for any S3-compatible service.
+    STORAGE_BACKEND = (os.environ.get("STORAGE_BACKEND") or "local").strip().lower()
     STORAGE_PATH = Path(os.environ.get("STORAGE_PATH") or (BASE_DIR / "storage")).resolve()
+
+    # S3 / R2 settings, read only when STORAGE_BACKEND == "s3".
+    S3_BUCKET = os.environ.get("S3_BUCKET", "")
+    S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "")
+    S3_ACCESS_KEY_ID = os.environ.get("S3_ACCESS_KEY_ID", "")
+    S3_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_ACCESS_KEY", "")
+    S3_REGION = os.environ.get("S3_REGION", "auto")
+    S3_PREFIX = os.environ.get("S3_PREFIX", "blobs")
 
     # -- Encryption --------------------------------------------------------
     MASTER_ENCRYPTION_KEY = os.environ.get("MASTER_ENCRYPTION_KEY") or ""

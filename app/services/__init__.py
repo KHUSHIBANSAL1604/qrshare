@@ -16,7 +16,12 @@ from app.services.encryption_service import EncryptionService
 from app.services.file_service import FileService
 from app.services.qr_service import QRCodeService
 from app.services.share_service import ShareError, ShareService
-from app.services.storage import LocalStorageBackend, StorageBackend, StorageError
+from app.services.storage import (
+    LocalStorageBackend,
+    S3StorageBackend,
+    StorageBackend,
+    StorageError,
+)
 
 
 @dataclass(frozen=True)
@@ -30,12 +35,34 @@ class ServiceRegistry:
     audit: type[AuditService]
 
 
+def build_storage(app: Flask) -> StorageBackend:
+    """Pick the storage backend named by configuration.
+
+    Share and file logic never sees this choice -- it only ever talks to the
+    :class:`StorageBackend` interface -- so swapping local for S3 changes
+    where bytes live and nothing else.
+    """
+    kind = app.config.get("STORAGE_BACKEND", "local")
+    if kind == "s3":
+        return S3StorageBackend(
+            app.config["S3_BUCKET"],
+            endpoint_url=app.config["S3_ENDPOINT_URL"],
+            access_key=app.config["S3_ACCESS_KEY_ID"],
+            secret_key=app.config["S3_SECRET_ACCESS_KEY"],
+            region=app.config["S3_REGION"],
+            prefix=app.config["S3_PREFIX"],
+        )
+    if kind != "local":
+        raise RuntimeError(f"unknown STORAGE_BACKEND: {kind!r} (expected 'local' or 's3')")
+    return LocalStorageBackend(app.config["STORAGE_PATH"])
+
+
 def build_services(app: Flask) -> ServiceRegistry:
     """Instantiate every service from application config."""
     from app.config import Config
 
     master_key = Config.master_key_bytes(app.config["MASTER_ENCRYPTION_KEY"])
-    storage = LocalStorageBackend(app.config["STORAGE_PATH"])
+    storage = build_storage(app)
     encryption = EncryptionService(master_key, chunk_size=app.config["ENCRYPTION_CHUNK_SIZE"])
     files = FileService(storage, encryption)
     return ServiceRegistry(
@@ -59,6 +86,7 @@ def services() -> ServiceRegistry:
 __all__ = [
     "ServiceRegistry",
     "build_services",
+    "build_storage",
     "services",
     "ShareError",
     "StorageError",

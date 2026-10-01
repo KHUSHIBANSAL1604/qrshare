@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QRShare</title>
+<meta name="description" content="Secure QR-based temporary file sharing.">
+<!--
+  QRShare is a server-rendered Flask application: its HTML, CSRF tokens and
+  per-request CSP nonces are produced by the backend, so the application
+  itself is hosted on Render. This page is the public front door on Vercel
+  and forwards visitors there.
+
+  BACKEND_URL below is the single thing to change if the backend moves.
+-->
+<meta http-equiv="refresh" content="0; url=__BACKEND_URL__">
+<link rel="canonical" href="__BACKEND_URL__">
+<style>
+  :root{
+    --bg:#f6f7fb; --surface:#fff; --border:#e2e6f0;
+    --text:#10141f; --muted:#5b6478; --accent:#4f46e5;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b0e16; --surface:#151a28; --border:#262e42;
+      --text:#eef1f8; --muted:#a2abc0; --accent:#8b83ff;
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; display:grid; place-items:center;
+    padding:24px;
+    font:16px/1.6 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1000px 500px at 15% -10%, color-mix(in srgb,var(--accent) 14%,transparent), transparent 60%),
+      var(--bg);
+  }
+  .card{
+    width:100%; max-width:440px; text-align:center;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:24px; padding:40px 28px;
+    box-shadow:0 24px 60px -24px rgba(16,20,31,.28);
+  }
+  .mark{
+    width:56px; height:56px; margin:0 auto 20px; display:grid; place-items:center;
+    border-radius:16px; color:#fff;
+    background:linear-gradient(140deg,var(--accent),#8b5cf6);
+  }
+  .mark svg{width:30px;height:30px}
+  h1{margin:0 0 6px; font-size:1.6rem; letter-spacing:-.02em}
+  p{margin:0 0 22px; color:var(--muted); font-size:.95rem}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; min-height:50px; padding:12px 22px;
+    border-radius:14px; background:var(--accent); color:#fff;
+    font-weight:600; text-decoration:none;
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .note{margin:16px 0 0; font-size:.8rem; color:var(--muted)}
+  .spin{
+    width:15px;height:15px;border:2px solid rgba(255,255,255,.35);
+    border-top-color:#fff;border-radius:50%;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <path d="M14 14h3v3h-3zM21 14v3M21 21h-7"/>
+      </svg>
+    </div>
+
+    <h1>QRShare</h1>
+    <p>Secure, expiring file sharing by QR code.</p>
+
+    <a class="btn" id="go" href="__BACKEND_URL__">
+      <span class="spin" aria-hidden="true"></span>
+      Opening QRShare&hellip;
+    </a>
+
+    <p class="note">
+      Not redirected automatically?
+      <a href="__BACKEND_URL__">Open QRShare</a>.
+    </p>
+  </main>
+
+  <script>
+    // Belt and braces alongside the meta refresh: replace() keeps this
+    // interstitial out of the back-button history, so "back" from the app
+    // does not bounce the visitor straight forward again.
+    window.location.replace("__BACKEND_URL__");
+  </script>
+</body>
+</html>
