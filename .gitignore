@@ -2,9 +2,12 @@
 .env
 *.key
 
-# Encrypted blobs and database
-storage/
-instance/
+# Encrypted blobs and database.
+# Leading slash anchors these to the repo root: without it, "storage/" also
+# matches app/services/storage/, silently excluding the storage backend
+# package from the repository.
+/storage/
+/instance/
 *.db
 *.sqlite
 *.sqlite3
