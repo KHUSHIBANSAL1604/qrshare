@@ -152,10 +152,13 @@ def test_render_blueprint_matches_the_app():
     assert "gunicorn run:app" in text, "start command must target the real WSGI app"
     assert "--bind 0.0.0.0:$PORT" in text, "must bind the port Render provides"
     assert "healthCheckPath: /healthz" in text
-    assert "STORAGE_BACKEND" in text and "s3" in text
+    assert "STORAGE_BACKEND" in text and "database" in text, (
+        "production must not store blobs on the ephemeral container disk"
+    )
+    assert "value: local" not in text
     assert "TRUST_PROXY" in text
     # Secrets must never carry a literal value in a committed file.
-    for secret in ("MASTER_ENCRYPTION_KEY", "S3_SECRET_ACCESS_KEY", "S3_ACCESS_KEY_ID"):
+    for secret in ("MASTER_ENCRYPTION_KEY",):
         block = re.search(rf"- key: {secret}\n(.*?)(?=\n      - key:|\Z)", text, re.S)
         assert block and "sync: false" in block.group(1), f"{secret} must be sync: false"
 

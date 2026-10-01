@@ -51,22 +51,11 @@ services:
       - key: ENABLE_HSTS
         value: "true"
 
-      # Container disks are wiped on every deploy, so blobs live in object
-      # storage instead. Credentials are entered in the dashboard.
+      # Container disks are wiped on every deploy, so the encrypted blobs
+      # live in Postgres alongside the application's own tables. That keeps
+      # the deployment free and removes the storage provider entirely.
       - key: STORAGE_BACKEND
-        value: s3
-      - key: S3_PREFIX
-        value: blobs
-      - key: S3_REGION
-        value: auto
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_ENDPOINT_URL
-        sync: false
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
-        sync: false
+        value: database
 
       # Signs sessions, CSRF tokens and download tickets. Any high-entropy
       # string works, so Render can mint it.
@@ -84,8 +73,9 @@ services:
           name: qrshare-db
           property: connectionString
 
+      # A free Postgres plan is ~1 GB and also holds the blobs.
       - key: MAX_FILE_SIZE_MB
-        value: "100"
+        value: "25"
       - key: DEFAULT_EXPIRY_MINUTES
         value: "60"
       - key: MAX_EXPIRY_MINUTES

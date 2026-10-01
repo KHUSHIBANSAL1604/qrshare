@@ -17,6 +17,7 @@ from app.services.file_service import FileService
 from app.services.qr_service import QRCodeService
 from app.services.share_service import ShareError, ShareService
 from app.services.storage import (
+    DatabaseStorageBackend,
     LocalStorageBackend,
     S3StorageBackend,
     StorageBackend,
@@ -43,6 +44,10 @@ def build_storage(app: Flask) -> StorageBackend:
     where bytes live and nothing else.
     """
     kind = app.config.get("STORAGE_BACKEND", "local")
+    if kind == "database":
+        # Blobs live beside the application's own tables. Keeps a hosted
+        # deployment durable without requiring a separate storage provider.
+        return DatabaseStorageBackend(app.config["SQLALCHEMY_DATABASE_URI"])
     if kind == "s3":
         return S3StorageBackend(
             app.config["S3_BUCKET"],
@@ -53,7 +58,9 @@ def build_storage(app: Flask) -> StorageBackend:
             prefix=app.config["S3_PREFIX"],
         )
     if kind != "local":
-        raise RuntimeError(f"unknown STORAGE_BACKEND: {kind!r} (expected 'local' or 's3')")
+        raise RuntimeError(
+            f"unknown STORAGE_BACKEND: {kind!r} (expected 'local', 'database' or 's3')"
+        )
     return LocalStorageBackend(app.config["STORAGE_PATH"])
 
 

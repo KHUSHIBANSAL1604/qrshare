@@ -30,10 +30,6 @@ from render_api import RenderClient, RenderError  # noqa: E402
 STATE_FILE = ROOT / ".deploy.state.json"
 
 REQUIRED = [
-    "R2_ACCOUNT_ID",
-    "R2_BUCKET",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
     "RENDER_API_KEY",
     "VERCEL_TOKEN",
     "SECRET_KEY",
@@ -154,8 +150,12 @@ def stage_github(env: dict) -> dict:
 
 # ----------------------------------------------------------------- Render --
 def backend_env(env: dict, public_url: str = "") -> dict[str, str]:
-    """Environment for the Render web service."""
-    account = env["R2_ACCOUNT_ID"]
+    """Environment for the Render web service.
+
+    Blobs live in Postgres (STORAGE_BACKEND=database) rather than on the
+    container filesystem, which is wiped on every deploy. That keeps the whole
+    deployment on free tiers with no storage provider to sign up for.
+    """
     values = {
         "PYTHON_VERSION": "3.12.6",
         "FLASK_ENV": "production",
@@ -164,14 +164,10 @@ def backend_env(env: dict, public_url: str = "") -> dict[str, str]:
         "ENABLE_HSTS": "true",
         "SECRET_KEY": env["SECRET_KEY"],
         "MASTER_ENCRYPTION_KEY": env["MASTER_ENCRYPTION_KEY"],
-        "STORAGE_BACKEND": "s3",
-        "S3_BUCKET": env["R2_BUCKET"],
-        "S3_ENDPOINT_URL": f"https://{account}.r2.cloudflarestorage.com",
-        "S3_ACCESS_KEY_ID": env["R2_ACCESS_KEY_ID"],
-        "S3_SECRET_ACCESS_KEY": env["R2_SECRET_ACCESS_KEY"],
-        "S3_REGION": "auto",
-        "S3_PREFIX": "blobs",
-        "MAX_FILE_SIZE_MB": "100",
+        "STORAGE_BACKEND": "database",
+        # A free Postgres plan is about 1 GB and holds the blobs as well as
+        # the tables, so the per-file cap is lower than it is locally.
+        "MAX_FILE_SIZE_MB": env.get("MAX_FILE_SIZE_MB", "25"),
         "DEFAULT_EXPIRY_MINUTES": "60",
         "MAX_EXPIRY_MINUTES": "1440",
         "CLEANUP_INTERVAL_SECONDS": "300",
