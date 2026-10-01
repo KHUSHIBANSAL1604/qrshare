@@ -39,7 +39,14 @@ def device() -> urllib.request.OpenerDirector:
 
 def fetch(op, url, data=None, headers=None, method=None, timeout=180):
     request = urllib.request.Request(url, data=data, method=method)
-    for key, value in (headers or {}).items():
+    headers = dict(headers or {})
+    # Flask-WTF enforces strict referrer checking on CSRF-protected POSTs over
+    # HTTPS. Browsers always send Referer; a bare client does not, so without
+    # this every state-changing request is rejected with a 400.
+    if data is not None and "Referer" not in headers:
+        parts = urllib.parse.urlparse(url)
+        headers["Referer"] = f"{parts.scheme}://{parts.netloc}/"
+    for key, value in headers.items():
         request.add_header(key, value)
     try:
         return op.open(request, timeout=timeout)
@@ -287,7 +294,14 @@ def main() -> int:
     for bad in ["abc", "A" * 43, "' OR '1'='1"]:
         r = fetch(receiver, f"{backend}/s/" + urllib.parse.quote(bad, safe=""))
         body = r.read()
-        check(r.status == 404, f"bogus token {bad[:16]!r} -> 404", f"status={r.status}")
+        # 403 is also a pass: Render fronts the service with Cloudflare, which
+        # blocks obvious injection strings at the edge before they ever reach
+        # the app. Refused earlier is better, not worse.
+        check(
+            r.status in (403, 404),
+            f"bogus token {bad[:16]!r} refused ({r.status})",
+            f"status={r.status}",
+        )
         check(b"Traceback" not in body, "no traceback leaked")
 
     # -- frontend ----------------------------------------------------------

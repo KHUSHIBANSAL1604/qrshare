@@ -78,7 +78,9 @@ class RenderClient:
         return None
 
     # -- database ----------------------------------------------------------
-    def create_postgres(self, name: str, owner: str, region: str, plan: str = "free") -> dict:
+    def create_postgres(
+        self, name: str, owner: str, region: str, plan: str = "free", version: str = "16"
+    ) -> dict:
         existing = self.find_postgres(name)
         if existing:
             return existing
@@ -89,6 +91,8 @@ class RenderClient:
                 "ownerId": owner,
                 "plan": plan,
                 "region": region,
+                # Render requires an explicit major version.
+                "version": version,
                 "databaseName": "qrshare",
                 "databaseUser": "qrshare",
             },

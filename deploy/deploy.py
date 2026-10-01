@@ -245,8 +245,11 @@ def stage_render(env: dict) -> dict:
     client.set_env_vars(service_id, variables)
 
     say("  deploying (this takes a few minutes) ...")
-    deploy = client.trigger_deploy(service_id)
-    deploy_id = (deploy.get("deploy") or deploy).get("id")
+    # Creating a service, or changing its environment, already starts a deploy.
+    # Asking for another can return nothing, so fall back to whichever deploy
+    # is currently running rather than treating that as a failure.
+    deploy = client.trigger_deploy(service_id) or client.latest_deploy(service_id)
+    deploy_id = ((deploy or {}).get("deploy") or deploy or {}).get("id")
     client.wait_for_deploy(service_id, deploy_id, on_tick=lambda s: say(f"    status: {s}"))
     say("  deploy is live")
 
