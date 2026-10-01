@@ -1,0 +1,15 @@
+# Development and verification only. NOT installed in production.
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+
+-r requirements.txt
+
+pytest==8.2.2
+
+# Runs the S3 backend against an in-process mock S3, so the real boto3 code
+# path (signing, multipart, StreamingBody) is covered without a live bucket.
+moto[s3]==5.0.11
+
+# Decodes the generated QR PNG during deployment verification, to prove the
+# code really encodes the public share URL and nothing else.
+opencv-python-headless==4.10.0.84

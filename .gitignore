@@ -1,6 +1,7 @@
 # Secrets — never commit
 .env
 .deploy.env
+.deploy.state.json
 *.key
 
 # Encrypted blobs and database.
