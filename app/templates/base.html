@@ -1,0 +1,56 @@
+{#
+  Base layout.
+
+  Note: the CSP sent by app/security.py forbids inline styles, so templates
+  never use a `style="..."` attribute; anything dynamic is set through the
+  CSSOM in JavaScript, which CSP permits.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}QRShare{% endblock %}</title>
+  <meta name="description" content="{% block description %}Share files securely with a QR code. Encrypted storage, expiring links, optional passwords and one-time downloads.{% endblock %}">
+  <meta name="referrer" content="same-origin">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+  {% include "_icons.html" %}
+
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" href="{{ url_for('main.index') }}">
+        <span class="brand__mark" aria-hidden="true">
+          <svg><use href="#i-qr"></use></svg>
+        </span>
+        QRShare
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="{{ url_for('main.security') }}">Security</a>
+        <a class="btn" href="{{ url_for('main.upload') }}">Share a file</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap {% block wrap_class %}{% endblock %}">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap site-footer__inner">
+      <span>QRShare v{{ app_version }} &middot; No accounts, no tracking.</span>
+      <span>Links are bearer credentials &mdash; share them carefully.</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/common.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

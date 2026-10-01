@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} &mdash; QRShare{% endblock %}
+{% block wrap_class %}wrap--narrow{% endblock %}
+
+{% block content %}
+<div class="error-page">
+  <div class="error-page__icon" aria-hidden="true">
+    <svg><use href="{{
+      '#i-clock' if status == 410 else
+      '#i-gauge' if status == 429 else
+      '#i-file'  if status == 413 else
+      '#i-alert' }}"></use></svg>
+  </div>
+
+  <div class="error-page__code">{{ status }}</div>
+  <h1>{{ title }}</h1>
+  <p>{{ description }}</p>
+
+  {% if status == 429 %}
+    <p class="muted"><small>Rate limits protect shares from brute-force guessing.
+      Wait a minute and try again.</small></p>
+  {% elif status == 410 %}
+    <p class="muted"><small>Ask the sender for a fresh link.</small></p>
+  {% endif %}
+
+  <a class="btn" href="{{ url_for('main.index') }}">Return home</a>
+</div>
+{% endblock %}

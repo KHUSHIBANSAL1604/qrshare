@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Security model &mdash; QRShare{% endblock %}
+{% block wrap_class %}wrap--narrow{% endblock %}
+
+{% block content %}
+<h1>Security model</h1>
+<p class="muted">What QRShare actually protects, and what it does not.</p>
+
+<div class="alert alert--info">
+  <svg aria-hidden="true"><use href="#i-info"></use></svg>
+  <span>
+    <strong>The QR code is not the security boundary.</strong> It is a convenient way
+    to move a URL from a screen to a camera. Anyone who can photograph the code has
+    the link, exactly as if you had emailed it. Protection comes from what sits
+    behind the link.
+  </span>
+</div>
+
+<section class="card stack">
+  <h2>Encryption at rest</h2>
+  <p>
+    Every upload gets its own random 256-bit key and is encrypted with
+    <strong>AES-256-GCM</strong> before anything is written to disk. That per-file key
+    is then encrypted with a server master key that lives in the environment, never
+    in the database and never in source control.
+  </p>
+  <p>
+    The file body is stored as a sequence of independently authenticated 1&nbsp;MiB
+    frames rather than one giant sealed blob. Each frame carries its own index in the
+    authenticated data, so frames cannot be reordered, duplicated or dropped, and the
+    last frame is marked as final so the file cannot be silently truncated. Every
+    frame is verified <em>before</em> its bytes are handed to you.
+  </p>
+  <div class="kv">
+    <div class="kv__row"><span class="kv__key">Cipher</span><span class="kv__val">AES-256-GCM</span></div>
+    <div class="kv__row"><span class="kv__key">Key per file</span><span class="kv__val">256-bit, random</span></div>
+    <div class="kv__row"><span class="kv__key">Key wrapping</span><span class="kv__val">AES-256-GCM under the master key</span></div>
+    <div class="kv__row"><span class="kv__key">Password hashing</span><span class="kv__val">Argon2id</span></div>
+    <div class="kv__row"><span class="kv__key">Share token</span><span class="kv__val">256 bits from the OS CSPRNG</span></div>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2>What protects a link</h2>
+  <p>The token alone is a bearer credential. Four things make it safe to hand around:</p>
+  <ul>
+    <li><strong>Unpredictability.</strong> Tokens come from <code>secrets.token_urlsafe(32)</code>
+      &mdash; 256 bits of OS entropy. No counters, no timestamps, no hashes of the filename.</li>
+    <li><strong>Expiry.</strong> Between 1 minute and {{ max_expiry }} minutes, default {{ default_expiry }}.
+      Checked on every single access.</li>
+    <li><strong>Optional password.</strong> Argon2id, verified server-side. The check runs even
+      when no password is set, so response timing does not reveal which shares are protected.</li>
+    <li><strong>One-time consumption.</strong> The link is claimed with a conditional
+      <code>UPDATE&nbsp;&hellip;&nbsp;WHERE&nbsp;used&nbsp;=&nbsp;0</code> before any byte is streamed,
+      so concurrent requests cannot both be served.</li>
+  </ul>
+</section>
+
+<section class="card stack">
+  <h2>Other measures</h2>
+  <div class="features">
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-gauge"></use></svg></div>
+      <h3>Rate limiting</h3>
+      <p>Separate budgets for uploads, password attempts, downloads and status polls.</p>
+    </article>
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-server"></use></svg></div>
+      <h3>Storage isolation</h3>
+      <p>Blobs live outside the web root under random names. Original filenames are
+        metadata only and never form a path.</p>
+    </article>
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-list"></use></svg></div>
+      <h3>Audit log</h3>
+      <p>Views, downloads, failed passwords and deletions are recorded. Passwords and
+        keys never are.</p>
+    </article>
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-shield"></use></svg></div>
+      <h3>Hardened responses</h3>
+      <p>CSP with no inline scripts, CSRF tokens, <code>nosniff</code>, frame denial, and
+        downloads forced to <code>attachment</code>.</p>
+    </article>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2>Honest limitations</h2>
+  <p>Things a viva examiner should hear stated plainly:</p>
+  <ul>
+    <li><strong>This is not end-to-end encryption.</strong> The server holds the master key,
+      so a compromised server can read files. True E2EE would need the key to live in the
+      URL fragment and never reach the server.</li>
+    <li><strong>Transport security is the deployment's job.</strong> Running
+      <code>python run.py</code> serves plain HTTP on localhost. HSTS stays off unless TLS is
+      genuinely configured, because promising HTTPS you do not have locks users out.</li>
+    <li><strong>An interrupted one-time download still counts as used.</strong> Claiming the
+      link before streaming is what makes the race impossible; failing closed is the
+      right direction for a link that promises single use.</li>
+    <li><strong>Default rate limiting is per process.</strong> The in-memory counter is fine
+      for one worker; a multi-worker deployment needs a shared store.</li>
+    <li><strong>No malware scanning.</strong> Uploads are treated as untrusted bytes, always
+      served as an attachment, never executed &mdash; but they are not inspected.</li>
+  </ul>
+</section>
+
+<p class="center">
+  <a class="btn" href="{{ url_for('main.upload') }}">Share a file</a>
+</p>
+{% endblock %}

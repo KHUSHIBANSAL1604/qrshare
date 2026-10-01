@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Secure file &mdash; QRShare{% endblock %}
+{% block description %}A file shared securely with QRShare.{% endblock %}
+{% block wrap_class %}wrap--narrow{% endblock %}
+
+{% block content %}
+<div class="receive">
+
+{% if status == 'active' %}
+  <div class="card center">
+    <div class="receive__icon" aria-hidden="true">
+      <svg><use href="{{ '#i-lock' if info.password_protected else '#i-file' }}"></use></svg>
+    </div>
+
+    <span class="badge badge--ok">
+      <svg aria-hidden="true"><use href="#i-shield"></use></svg>
+      Secure file
+    </span>
+
+    {# Autoescaped: a filename containing markup is displayed, never executed. #}
+    <p class="receive__name">{{ share.file.original_filename }}</p>
+    <p class="muted">{{ share.file.size | human_size }}</p>
+
+    <div class="kv">
+      <div class="kv__row">
+        <span class="kv__key">Available until</span>
+        <span class="kv__val"><time id="expires-at" datetime="{{ info.expires_at }}">{{ info.expires_at }}</time></span>
+      </div>
+      <div class="kv__row">
+        <span class="kv__key">Time left</span>
+        <span class="kv__val" id="countdown">&mdash;</span>
+      </div>
+      <div class="kv__row">
+        <span class="kv__key">Downloads so far</span>
+        <span class="kv__val">{{ info.downloads }}</span>
+      </div>
+      {% if info.one_time %}
+      <div class="kv__row">
+        <span class="kv__key">One-time link</span>
+        <span class="kv__val"><span class="badge badge--warn">
+          <svg aria-hidden="true"><use href="#i-flame"></use></svg> Single use
+        </span></span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if info.one_time %}
+      <div class="alert alert--warn">
+        <svg aria-hidden="true"><use href="#i-alert"></use></svg>
+        <span>This link works once. Make sure you can save the file before you start.</span>
+      </div>
+    {% endif %}
+
+    <div class="alert alert--danger" id="download-error" role="alert" hidden>
+      <svg aria-hidden="true"><use href="#i-alert"></use></svg>
+      <span id="download-error-text"></span>
+    </div>
+
+    {% if info.password_protected %}
+      <form id="password-form" class="stack" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="password">Enter the password</label>
+          <input class="input" type="password" id="password" name="password"
+                 autocomplete="off" required autofocus
+                 aria-describedby="password-hint">
+          <p class="field__hint" id="password-hint">The sender should have given this to you separately.</p>
+        </div>
+        <button type="submit" class="btn btn--lg btn--block" id="unlock-btn">
+          <svg aria-hidden="true"><use href="#i-lock"></use></svg>
+          <span id="unlock-label">Unlock &amp; download</span>
+        </button>
+      </form>
+    {% else %}
+      <button type="button" class="btn btn--lg btn--block" id="download-btn">
+        <svg aria-hidden="true"><use href="#i-download"></use></svg>
+        <span id="download-label">Download file</span>
+      </button>
+    {% endif %}
+  </div>
+
+  <p class="muted center">
+    <small>Stored encrypted with AES-256-GCM. Decrypted only for this download.</small>
+  </p>
+
+{% else %}
+  {# ------------------------------------------------------------------ #}
+  {# Expired / used / deleted                                            #}
+  {# ------------------------------------------------------------------ #}
+  <div class="card center">
+    <div class="receive__icon receive__icon--bad" aria-hidden="true">
+      <svg><use href="{{ '#i-flame' if status == 'used' else '#i-clock' }}"></use></svg>
+    </div>
+
+    {% if status == 'used' %}
+      <h1>Already used</h1>
+      <p class="muted">
+        This share was a one-time download and has already been used.
+        For security reasons the file is no longer available.
+      </p>
+    {% elif status == 'expired' %}
+      <h1>Share expired</h1>
+      <p class="muted">
+        This file-sharing link expired on
+        <strong><time datetime="{{ info.expires_at }}" id="expired-at">{{ info.expires_at }}</time></strong>.
+        For security reasons the file is no longer available.
+      </p>
+    {% else %}
+      <h1>No longer available</h1>
+      <p class="muted">
+        The sender cancelled this share. The file has been deleted.
+      </p>
+    {% endif %}
+
+    <p class="muted"><small>Ask the sender for a fresh link if you still need the file.</small></p>
+    <a class="btn btn--ghost" href="{{ url_for('main.index') }}">Return home</a>
+  </div>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" id="download-config" type="application/json">
+  {{ {
+      "status": status,
+      "expiresAt": info.expires_at,
+      "oneTime": info.one_time,
+      "passwordProtected": info.password_protected,
+      "downloadUrl": url_for('api.download', token=share.token),
+      "verifyUrl": url_for('api.verify_password_route', token=share.token),
+      "statusUrl": url_for('api.status', token=share.token),
+      "csrfToken": csrf_token()
+     } | tojson }}
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/download.js') }}"></script>
+{% endblock %}

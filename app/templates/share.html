@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Your share is ready &mdash; QRShare{% endblock %}
+
+{% block content %}
+<div class="center">
+  <span class="badge badge--ok">
+    <svg aria-hidden="true"><use href="#i-check-circle"></use></svg>
+    File shared successfully
+  </span>
+  <h1>Scan to download</h1>
+  <p class="muted">Point a phone camera at the code, or send the link.</p>
+</div>
+
+<div class="share-grid">
+  <!-- ------------------------------------------------------------------ -->
+  <!-- QR                                                                 -->
+  <!-- ------------------------------------------------------------------ -->
+  <section class="card qr-panel" aria-labelledby="qr-heading">
+    <h2 id="qr-heading" class="sr-only">QR code</h2>
+    <div class="qr-frame">
+      {# Rendered server-side as a data: URI so the page needs no extra request. #}
+      <img src="{{ qr_data_uri }}" width="248" height="248"
+           alt="QR code linking to {{ share.file.original_filename }}">
+    </div>
+    <p class="qr-caption">The code contains the link only &mdash; never the file.</p>
+    <div class="btn-row">
+      <a class="btn btn--subtle"
+         href="{{ url_for('api.qr', token=share.token, download='1') }}" download>
+        <svg aria-hidden="true"><use href="#i-download"></use></svg>
+        Download QR
+      </a>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Details                                                            -->
+  <!-- ------------------------------------------------------------------ -->
+  <div class="stack">
+    <section class="card" aria-labelledby="file-heading">
+      <h2 id="file-heading" class="sr-only">File</h2>
+      <div class="filecard">
+        <span class="filecard__icon" aria-hidden="true"><svg><use href="#i-file"></use></svg></span>
+        <span class="filecard__meta">
+          {# Jinja autoescaping keeps a hostile filename inert here. #}
+          <span class="filecard__name">{{ share.file.original_filename }}</span>
+          <span class="filecard__sub">{{ share.file.size | human_size }}</span>
+        </span>
+      </div>
+
+      <div class="field" id="link-field">
+        <span class="field__label" id="link-label">Share link</span>
+        <div class="copy-row">
+          <input class="input" id="share-link" value="{{ share_link }}" readonly
+                 aria-labelledby="link-label" spellcheck="false">
+          <button type="button" class="btn" data-copy="#share-link">
+            <svg aria-hidden="true"><use href="#i-copy"></use></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="manage-label">Private manage link (keep this one)</span>
+        <div class="copy-row">
+          <input class="input" id="manage-link" readonly spellcheck="false"
+                 aria-labelledby="manage-label" value="{{ manage_link }}">
+          <button type="button" class="btn btn--subtle" data-copy="#manage-link">
+            <svg aria-hidden="true"><use href="#i-copy"></use></svg>
+            Copy
+          </button>
+        </div>
+        <p class="field__hint">Only this link shows download stats and can cancel the share. Do not put it in the QR code.</p>
+      </div>
+    </section>
+
+    <!-- Live status -->
+    <section class="card" aria-labelledby="status-heading">
+      <h2 id="status-heading">Status</h2>
+      <div class="stats">
+        <div class="stat stat--countdown" id="countdown-stat">
+          <div class="stat__val" id="countdown">&mdash;</div>
+          <div class="stat__key">Time left</div>
+        </div>
+        <div class="stat">
+          <div class="stat__val" id="download-count">{{ info.downloads }}</div>
+          <div class="stat__key">Downloads</div>
+        </div>
+        <div class="stat">
+          <div class="stat__val" id="status-value">
+            <span class="badge badge--{{ 'ok' if info.status == 'active' else 'muted' }}" id="status-badge">
+              {{ info.status | capitalize }}
+            </span>
+          </div>
+          <div class="stat__key">State</div>
+        </div>
+      </div>
+
+      <div class="kv" id="security-summary">
+        <div class="kv__row">
+          <span class="kv__key">Encryption at rest</span>
+          <span class="kv__val"><span class="badge badge--ok">AES-256-GCM</span></span>
+        </div>
+        <div class="kv__row">
+          <span class="kv__key">Password protection</span>
+          <span class="kv__val">
+            {% if info.password_protected %}
+              <span class="badge badge--ok">Enabled</span>
+            {% else %}
+              <span class="badge badge--muted">Off</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="kv__row">
+          <span class="kv__key">One-time download</span>
+          <span class="kv__val">
+            {% if info.one_time %}
+              <span class="badge badge--warn">Enabled</span>
+            {% else %}
+              <span class="badge badge--muted">Off</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="kv__row">
+          <span class="kv__key">Expires</span>
+          <span class="kv__val"><time id="expires-at" datetime="{{ info.expires_at }}">{{ info.expires_at }}</time></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audit trail -->
+    <section class="card" aria-labelledby="events-heading">
+      <h2 id="events-heading">Activity</h2>
+      {% if events %}
+        <ul class="event-list">
+          {% for event in events %}
+            <li class="{{ 'event--fail' if not event.success }}">
+              <time datetime="{{ event.timestamp.isoformat() }}">{{ event.timestamp.strftime('%H:%M:%S') }}</time>
+              <span class="event-name">{{ event.event_type.replace('_', ' ') | capitalize }}</span>
+              {% if event.reason %}<span class="muted">{{ event.reason }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nothing yet. Events appear here as the link is used.</p>
+      {% endif %}
+    </section>
+
+    <div class="btn-row">
+      <a class="btn btn--ghost" href="{{ url_for('main.upload') }}">Create another share</a>
+      <button type="button" class="btn btn--danger" id="cancel-share"
+              {% if info.status != 'active' %}disabled{% endif %}>
+        <svg aria-hidden="true"><use href="#i-trash"></use></svg>
+        Cancel this share
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" id="share-config" type="application/json">
+  {{ {
+      "statusUrl": url_for('api.status', token=share.token, key=owner_token),
+      "cancelUrl": url_for('api.cancel', token=share.token),
+      "ownerKey": owner_token,
+      "expiresAt": info.expires_at,
+      "csrfToken": csrf_token()
+     } | tojson }}
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/share.js') }}"></script>
+{% endblock %}

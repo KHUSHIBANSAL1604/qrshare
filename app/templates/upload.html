@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Share a file &mdash; QRShare{% endblock %}
+{% block wrap_class %}wrap--narrow{% endblock %}
+
+{% block content %}
+<h1>Share a file</h1>
+<p class="muted">Choose a file, set the rules, and we will hand you a QR code.</p>
+
+<form id="upload-form" class="card" autocomplete="off" novalidate>
+  {# Flask-WTF validates this on every POST; app/routes/api.py is CSRF-protected. #}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="alert alert--danger" id="form-error" role="alert" hidden>
+    <svg aria-hidden="true"><use href="#i-alert"></use></svg>
+    <span id="form-error-text"></span>
+  </div>
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- 1. File                                                          -->
+  <!-- ---------------------------------------------------------------- -->
+  <div id="state-idle">
+    <label class="dropzone" id="dropzone" for="file-input">
+      <span class="dropzone__icon" aria-hidden="true">
+        <svg><use href="#i-upload"></use></svg>
+      </span>
+      <span class="dropzone__title">Drop a file here, or click to browse</span>
+      <span class="dropzone__hint">
+        Up to {{ max_mb }} MB{% if allowed_extensions %} &middot; Allowed: {{ allowed_extensions|join(', ') }}{% endif %}
+      </span>
+      <input type="file" id="file-input" name="file" required>
+    </label>
+  </div>
+
+  <div id="state-selected" hidden>
+    <div class="filecard">
+      <span class="filecard__icon" aria-hidden="true"><svg><use href="#i-file"></use></svg></span>
+      <span class="filecard__meta">
+        <span class="filecard__name" id="file-name"></span>
+        <span class="filecard__sub" id="file-sub"></span>
+      </span>
+      <button type="button" class="icon-btn" id="file-clear" aria-label="Remove this file">
+        <svg aria-hidden="true"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- 2. Security options                                              -->
+  <!-- ---------------------------------------------------------------- -->
+  <h2>Security</h2>
+
+  <div class="field">
+    <label for="expiry">Link expires after</label>
+    <select class="input" id="expiry" name="expiry_minutes">
+      <option value="10">10 minutes</option>
+      <option value="30">30 minutes</option>
+      <option value="60" selected>1 hour</option>
+      <option value="360">6 hours</option>
+      <option value="720">12 hours</option>
+      <option value="1440">24 hours</option>
+      <option value="custom">Custom&hellip;</option>
+    </select>
+    <p class="field__hint">After this, the link stops working and the file is deleted.</p>
+  </div>
+
+  <div class="field" id="custom-expiry-field" hidden>
+    <label for="expiry-custom">Custom expiry (minutes)</label>
+    <input class="input" type="number" id="expiry-custom" min="1" max="{{ max_expiry }}"
+           value="{{ default_expiry }}" inputmode="numeric">
+    <p class="field__hint">Between 1 and {{ max_expiry }} minutes.</p>
+  </div>
+
+  <label class="toggle-row" for="password-toggle">
+    <span class="switch">
+      <input type="checkbox" id="password-toggle" name="password_protect" value="true">
+      <span class="switch__track" aria-hidden="true"></span>
+    </span>
+    <span class="toggle-row__text">
+      <span class="toggle-row__title">
+        <svg aria-hidden="true" width="15" height="15"><use href="#i-key"></use></svg>
+        Protect with a password
+      </span>
+      <span class="toggle-row__desc">The receiver must type it before the file is released.</span>
+    </span>
+  </label>
+
+  <div class="collapse" id="password-fields">
+    <div>
+      <div class="panel stack">
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" type="password" id="password" name="password"
+                 minlength="6" autocomplete="new-password">
+          <p class="field__hint">At least 6 characters. Send it to the receiver another way.</p>
+        </div>
+        <div class="field">
+          <label for="password-confirm">Confirm password</label>
+          <input class="input" type="password" id="password-confirm" name="password_confirm"
+                 autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <label class="toggle-row" for="onetime-toggle">
+    <span class="switch">
+      <input type="checkbox" id="onetime-toggle" name="one_time" value="true">
+      <span class="switch__track" aria-hidden="true"></span>
+    </span>
+    <span class="toggle-row__text">
+      <span class="toggle-row__title">
+        <svg aria-hidden="true" width="15" height="15"><use href="#i-flame"></use></svg>
+        Delete after the first download
+        <span class="tip" title="Once successfully downloaded, this share can no longer be used. An interrupted download still counts.">?</span>
+      </span>
+      <span class="toggle-row__desc">One download only. Off by default.</span>
+    </span>
+  </label>
+
+  <hr class="divider">
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- 3. Submit / progress                                             -->
+  <!-- ---------------------------------------------------------------- -->
+  <div id="state-uploading" hidden>
+    <div class="progress"><div class="progress__bar" id="progress-bar"></div></div>
+    <div class="progress__label">
+      <span id="progress-status">Uploading&hellip;</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <button type="button" class="btn btn--subtle btn--block" id="cancel-upload">Cancel upload</button>
+  </div>
+
+  <div id="state-ready">
+    <button type="submit" class="btn btn--lg btn--block" id="submit-btn" disabled>
+      <svg aria-hidden="true"><use href="#i-shield"></use></svg>
+      <span id="submit-label">Encrypt &amp; create QR code</span>
+    </button>
+  </div>
+</form>
+
+<p class="muted center" id="upload-foot">
+  <small>Files are encrypted on the server before they touch the disk. The QR code
+  carries only the link &mdash; never the file itself.</small>
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" id="upload-config" type="application/json">
+  {{ {
+      "maxBytes": max_bytes,
+      "maxMb": max_mb,
+      "maxExpiry": max_expiry,
+      "blocked": blocked_extensions,
+      "allowed": allowed_extensions,
+      "uploadUrl": url_for('api.upload')
+     } | tojson }}
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

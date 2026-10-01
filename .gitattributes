@@ -1,0 +1,5 @@
+# Normalise line endings: the repo stores LF, Windows checkouts get CRLF.
+# Keeps diffs clean and avoids CRLF breaking scripts in the Linux container.
+* text=auto eol=lf
+*.png binary
+*.svg text

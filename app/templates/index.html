@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}QRShare &mdash; Secure QR-based file sharing{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <span class="hero__eyebrow">
+    <svg aria-hidden="true"><use href="#i-shield"></use></svg>
+    Encrypted at rest &middot; No account required
+  </span>
+
+  <h1>Share a file with a <span class="hero__grad">QR code</span>.<br>Then watch it disappear.</h1>
+
+  <p class="hero__lede">
+    Upload a file, choose how long the link should live, and QRShare hands you a QR
+    code to point a phone at. Every file is encrypted on the server with its own key,
+    and the link stops working the moment you say so.
+  </p>
+
+  <div class="hero__cta">
+    <a class="btn btn--lg" href="{{ url_for('main.upload') }}">
+      <svg aria-hidden="true"><use href="#i-upload"></use></svg>
+      Upload a file
+    </a>
+    <a class="btn btn--lg btn--ghost" href="{{ url_for('main.security') }}">How it works</a>
+  </div>
+
+  <p class="hero__note">
+    <span><svg aria-hidden="true"><use href="#i-check"></use></svg> No sign-up</span>
+    <span><svg aria-hidden="true"><use href="#i-check"></use></svg> Up to {{ max_mb }} MB</span>
+    <span><svg aria-hidden="true"><use href="#i-check"></use></svg> Auto-deleted</span>
+  </p>
+</section>
+
+<section aria-labelledby="features-heading">
+  <div class="section-head">
+    <h2 id="features-heading">Security you can demonstrate</h2>
+    <p>Every one of these is enforced on the server. The QR code is only a delivery
+      mechanism &mdash; it is the token behind it that is protected.</p>
+  </div>
+
+  <div class="features">
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-lock"></use></svg></div>
+      <h3>AES-256-GCM at rest</h3>
+      <p>Each file gets its own random key. That key is itself encrypted with a
+        server master key that never touches the database.</p>
+    </article>
+
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-clock"></use></svg></div>
+      <h3>Links that expire</h3>
+      <p>From 10 minutes to 24 hours. After that the link returns a clear
+        &ldquo;expired&rdquo; page and the encrypted bytes are shredded.</p>
+    </article>
+
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-key"></use></svg></div>
+      <h3>Optional password</h3>
+      <p>Hashed with Argon2id, verified on the server, and every wrong guess is
+        rate limited and written to the audit log.</p>
+    </article>
+
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-flame"></use></svg></div>
+      <h3>One-time downloads</h3>
+      <p>Consumed atomically, so two people scanning the same code at the same
+        instant can never both receive the file.</p>
+    </article>
+
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-gauge"></use></svg></div>
+      <h3>Rate limited</h3>
+      <p>Uploads, password attempts and downloads all have their own budgets,
+        which is what makes a 256-bit token worth having.</p>
+    </article>
+
+    <article class="feature">
+      <div class="feature__icon"><svg aria-hidden="true"><use href="#i-broom"></use></svg></div>
+      <h3>Cleaned up automatically</h3>
+      <p>A background sweep removes expired shares, consumed one-time files and
+        any blob no record points at.</p>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="how-heading">
+  <div class="section-head">
+    <h2 id="how-heading">Four steps, about twenty seconds</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <h3>Pick a file</h3>
+      <p>Drag it in, or browse. Nothing leaves your machine until you press upload.</p>
+    </div>
+    <div class="step">
+      <h3>Set the rules</h3>
+      <p>Expiry, a password if you want one, and whether the link dies after
+        the first download.</p>
+    </div>
+    <div class="step">
+      <h3>Show the QR</h3>
+      <p>The receiver points a normal phone camera at your screen. No app to install.</p>
+    </div>
+    <div class="step">
+      <h3>It cleans itself up</h3>
+      <p>You can watch the countdown and the download count, or cancel the share early.</p>
+    </div>
+  </div>
+</section>
+
+<section class="center">
+  <hr class="divider">
+  <h2>Ready to share something?</h2>
+  <p class="muted">Files up to {{ max_mb }} MB. No account, no email address.</p>
+  <a class="btn btn--lg" href="{{ url_for('main.upload') }}">
+    <svg aria-hidden="true"><use href="#i-upload"></use></svg>
+    Upload a file
+  </a>
+</section>
+{% endblock %}
